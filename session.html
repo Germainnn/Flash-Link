@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Launching BookMyShow Session</title>
+</head>
+<body>
+  <h2>🔄 Launching your session, please wait…</h2>
+  <p id="status">Preparing your booking session…</p>
+
+  <script>
+    function decodeSession(encoded) {
+      try {
+        const decoded = atob(decodeURIComponent(encoded));
+        return JSON.parse(decoded);
+      } catch (e) {
+        console.error("Failed to decode session data:", e);
+        return null;
+      }
+    }
+
+    function saveSessionFile(data) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = "queueit_session.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function launchSession() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const encoded = urlParams.get("s");
+
+      if (!encoded) {
+        document.getElementById("status").textContent = "❌ No session data found in URL.";
+        return;
+      }
+
+      const session = decodeSession(encoded);
+      if (!session || !session.url) {
+        document.getElementById("status").textContent = "❌ Invalid or corrupted session.";
+        return;
+      }
+
+      document.getElementById("status").textContent = "✅ Session ready. Redirecting...";
+
+      // Optional: save session JSON to download
+      saveSessionFile(session);
+
+      // Redirect after a short delay
+      setTimeout(() => {
+        window.location.href = session.url;
+      }, 3000);
+    }
+
+    launchSession();
+  </script>
+</body>
+</html>
