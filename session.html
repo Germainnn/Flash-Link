@@ -2,12 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Queue Session Handler</title>
+  <title>Launching BookMyShow Session</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin-top: 5%;
+      margin-top: 10%;
       background-color: #f9f9f9;
     }
     h2 {
@@ -31,96 +31,55 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    .queue-info {
-      background-color: #fff4e5;
-      border: 1px solid #ffcc80;
-      padding: 15px;
-      margin: 20px 0;
-      border-radius: 5px;
-      text-align: left;
-    }
-    .instructions {
-      text-align: left;
-      margin: 20px 0;
-    }
-    .instructions li {
-      margin-bottom: 10px;
-    }
-    .target-url {
-      word-break: break-all;
-      background-color: #f5f5f5;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
-      text-align: left;
-      font-family: monospace;
-    }
-    .button {
-      background-color: #ff1842;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 15px;
-    }
-    .cookie-status {
-      font-size: 14px;
+    #debug-info {
       margin-top: 20px;
-      background-color: #f5f5f5;
-      padding: 10px;
-      border-radius: 5px;
       text-align: left;
+      font-size: 12px;
       max-height: 200px;
       overflow-y: auto;
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+    }
+    .debug-toggle {
+      color: #999;
+      cursor: pointer;
+      margin-top: 20px;
+      font-size: 12px;
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div id="queue-handler" style="display:none;">
-      <h2>🚀 Queue Session Handler</h2>
-      <div class="queue-info">
-        <p><strong>⚠️ This is a queue session, not an authenticated session.</strong></p>
-        <p>You need to wait in the queue and solve any CAPTCHA challenges to get an authenticated session.</p>
-      </div>
-      
-      <div class="instructions">
-        <h3>Follow these steps:</h3>
-        <ol>
-          <li>Click the "Open Queue" button below to continue in the queue</li>
-          <li>Wait until you reach the front of the queue</li>
-          <li>Solve any CAPTCHA or verification if required</li>
-          <li>Once you reach the booking page, you can capture that authenticated session</li>
-        </ol>
-      </div>
-      
-      <div>
-        <p>Target URL:</p>
-        <div class="target-url" id="queue-target-url"></div>
-      </div>
-      
-      <button id="open-queue-btn" class="button">Open Queue</button>
-    </div>
-    
-    <div id="auth-handler" style="display:none;">
-      <h2>🔄 Launching your session...</h2>
-      <div class="spinner"></div>
-      <p id="status">Preparing your booking session...</p>
-      <div id="cookie-status" class="cookie-status"></div>
-    </div>
-  </div>
+  <h2>🔄 Launching your session...</h2>
+  <div class="spinner"></div>
+  <p id="status">Preparing your booking session...</p>
+  <div id="debug-info"></div>
+  <div class="debug-toggle" onclick="toggleDebug()">Show Debug Info</div>
   
   <script>
+    // Debug helper
+    function debugLog(message) {
+      const debugElement = document.getElementById("debug-info");
+      const msgElement = document.createElement("div");
+      msgElement.textContent = message;
+      debugElement.appendChild(msgElement);
+      console.log(message);
+    }
+    
+    function toggleDebug() {
+      const debugElement = document.getElementById("debug-info");
+      const toggleElement = document.querySelector(".debug-toggle");
+      if (debugElement.style.display === "none" || !debugElement.style.display) {
+        debugElement.style.display = "block";
+        toggleElement.textContent = "Hide Debug Info";
+      } else {
+        debugElement.style.display = "none";
+        toggleElement.textContent = "Show Debug Info";
+      }
+    }
+    
     function decodeSession(encoded) {
       try {
         // Replace URL-safe base64 characters back to standard base64
@@ -128,100 +87,58 @@
         const decoded = atob(base64Fixed);
         return JSON.parse(decoded);
       } catch (e) {
-        console.error("❌ Failed to decode session:", e);
+        debugLog("❌ Failed to decode session: " + e.message);
         document.getElementById("status").textContent = `❌ Error decoding session: ${e.message}`;
         return null;
       }
     }
     
     function setCookie(name, value, domain) {
-      // Try to set cookie with multiple domain options
-      const domains = [
-        domain || '.bookmyshow.com',
-        domain?.startsWith('.') ? domain.substring(1) : domain,  // Try without leading dot
-        'bookmyshow.com',
-        '.bookmyshow.com',
-        window.location.hostname
-      ];
-      
-      domains.forEach(d => {
-        if (!d) return;
+      try {
+        // First try with the specific domain
+        if (domain) {
+          // Try with the domain provided
+          document.cookie = `${name}=${value}; path=/; domain=${domain}; max-age=7200; Secure; SameSite=None`;
+          debugLog(`Set cookie ${name} for domain ${domain}`);
+          
+          // Try with dot prefix if not already present
+          if (!domain.startsWith('.')) {
+            document.cookie = `${name}=${value}; path=/; domain=.${domain}; max-age=7200; Secure; SameSite=None`;
+            debugLog(`Set cookie ${name} for domain .${domain}`);
+          }
+        }
         
-        try {
-          // Try with Secure and SameSite=None for cross-site access
-          document.cookie = `${name}=${value}; path=/; domain=${d}; max-age=7200; Secure; SameSite=None`;
-          
-          // Also try without Secure/SameSite for older browsers
-          document.cookie = `${name}=${value}; path=/; domain=${d}; max-age=7200`;
-          
-          log(`Set cookie ${name} for domain ${d}`);
-        } catch (e) {
-          log(`Failed to set cookie for domain ${d}: ${e}`);
+        // Also try with the determined root domain
+        const rootDomain = extractRootDomain(domain);
+        if (rootDomain && rootDomain !== domain) {
+          document.cookie = `${name}=${value}; path=/; domain=${rootDomain}; max-age=7200; Secure; SameSite=None`;
+          debugLog(`Set cookie ${name} for root domain ${rootDomain}`);
         }
-      });
-    }
-    
-    function log(message) {
-      const cookieStatus = document.getElementById("cookie-status");
-      if (cookieStatus) {
-        const line = document.createElement("div");
-        line.textContent = message;
-        cookieStatus.appendChild(line);
+        
+        // Set cookie without domain specification as a fallback
+        document.cookie = `${name}=${value}; path=/; max-age=7200`;
+        debugLog(`Set cookie ${name} without domain specification`);
+        
+        return true;
+      } catch (e) {
+        debugLog(`⚠️ Error setting cookie ${name}: ${e.message}`);
+        return false;
       }
-      console.log(message);
     }
     
-    function handleQueueSession(session) {
-      document.getElementById("queue-handler").style.display = "block";
-      document.getElementById("auth-handler").style.display = "none";
+    function extractRootDomain(domain) {
+      if (!domain) return null;
       
-      // Set the target URL
-      const targetUrl = session.url || session.queueit_url;
-      document.getElementById("queue-target-url").textContent = targetUrl;
+      // Remove any leading dots
+      domain = domain.replace(/^\./, '');
       
-      // Set up the Open Queue button
-      document.getElementById("open-queue-btn").addEventListener("click", function() {
-        window.location.href = targetUrl;
-      });
-    }
-    
-    function handleAuthSession(session) {
-      document.getElementById("queue-handler").style.display = "none";
-      document.getElementById("auth-handler").style.display = "block";
-      
-      const statusElement = document.getElementById("status");
-      statusElement.textContent = "Applying session cookies...";
-      
-      // Get the target URL and domain
-      let targetUrl = session.url || session.queueit_url;
-      const domain = session._domain || (targetUrl ? new URL(targetUrl).hostname : null);
-      
-      // Apply cookies
-      let cookieCount = 0;
-      if (session.cookies) {
-        for (const [name, value] of Object.entries(session.cookies)) {
-          setCookie(name, value, domain);
-          cookieCount++;
-        }
+      // Split by dots and get the last two parts if there are at least two
+      const parts = domain.split('.');
+      if (parts.length >= 2) {
+        return '.' + parts.slice(-2).join('.');
       }
       
-      log(`Applied ${cookieCount} cookies for domain: ${domain}`);
-      
-      // Start redirect countdown
-      let countdown = 5;
-      statusElement.textContent = `✅ Session ready. Redirecting in ${countdown}...`;
-      
-      const interval = setInterval(() => {
-        countdown--;
-        if (countdown <= 0) {
-          clearInterval(interval);
-          // Redirect to the target URL
-          log(`Redirecting to: ${targetUrl}`);
-          window.location.href = targetUrl;
-        } else {
-          statusElement.textContent = `✅ Session ready. Redirecting in ${countdown}...`;
-        }
-      }, 1000);
+      return '.' + domain;
     }
     
     function launchSession() {
@@ -233,29 +150,76 @@
         return;
       }
       
-      // Decode the session data
       const session = decodeSession(encoded);
       
       if (!session) {
-        document.getElementById("status").textContent = "❌ Invalid or corrupted session data.";
+        document.getElementById("status").textContent = "❌ Invalid or corrupted session.";
         return;
       }
       
-      // Determine if this is a queue session or an authenticated session
-      const isQueueSession = session._is_queue_session || 
-                            (session.url && session.url.includes("queue-it")) ||
-                            (session.queueit_url && session.queueit_url.includes("queue-it")) ||
-                            (session.enqueuetoken && !session.queueittoken);
+      debugLog("Session data: " + JSON.stringify(session, null, 2));
       
-      // Handle the session type appropriately
-      if (isQueueSession) {
-        handleQueueSession(session);
+      // Determine the target URL and domain
+      let targetUrl = session.queueit_url || session.url;
+      const domain = session._domain || (targetUrl ? new URL(targetUrl).hostname : null);
+      
+      debugLog(`Target URL: ${targetUrl}`);
+      debugLog(`Domain: ${domain}`);
+      
+      // Set all cookies
+      if (typeof session.cookies === 'object') {
+        let cookieCount = 0;
+        
+        // First check if we have a dictionary or array of cookies
+        if (Array.isArray(session.cookies)) {
+          // Handle array format
+          for (const cookie of session.cookies) {
+            if (cookie.name && cookie.value) {
+              const cookieDomain = cookie.domain || domain;
+              if (setCookie(cookie.name, cookie.value, cookieDomain)) {
+                cookieCount++;
+              }
+            }
+          }
+        } else {
+          // Handle dictionary format
+          for (const [name, value] of Object.entries(session.cookies)) {
+            if (setCookie(name, value, domain)) {
+              cookieCount++;
+            }
+          }
+        }
+        
+        document.getElementById("status").textContent = `✅ Applied ${cookieCount} cookies. Preparing redirect...`;
       } else {
-        handleAuthSession(session);
+        document.getElementById("status").textContent = "⚠️ No cookies found in session data.";
       }
+      
+      // Handle tokens if available
+      if (session.queueittoken && !targetUrl.includes('queueittoken=')) {
+        // Add queueittoken to URL if not already present
+        debugLog("Adding queueittoken to URL");
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}queueittoken=${session.queueittoken}`;
+      }
+      
+      // Start redirect countdown
+      let countdown = 3;
+      document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
+      
+      const interval = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          clearInterval(interval);
+          debugLog(`Redirecting to: ${targetUrl}`);
+          window.location.href = targetUrl;
+        } else {
+          document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
+        }
+      }, 1000);
     }
     
-    // Start the process
+    // Start the session launching process
     document.addEventListener('DOMContentLoaded', launchSession);
   </script>
 </body>
