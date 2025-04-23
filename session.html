@@ -161,31 +161,35 @@
 
     // — 3) apply cookies —————————————————————————————————
     statusEl.textContent = '🍪 Applying cookies…';
-    
-    // figure out where cookies ought to go
-    const queueDomain  = session._domain;
-    const targetDomain = session._target_domain || (session.url ? new URL(session.url).hostname : null);
-    
+
+    // derive domains from your JSON
+    const queueDomain  = session.event_info?.domain;
+    const targetDomain = session.url
+                        ? new URL(session.url).hostname
+                        : null;
+
     let applied = 0;
-    
-    // if you stored cookie_dict (name→value), use that
-    if (session.cookie_dict) {
-      for (const [name, val] of Object.entries(session.cookie_dict)) {
-        // for a queue-it cookie (name includes “Queue-it-”), stick it on queueDomain
+
+    // your JSON now has "cookies": { name: value, … }
+    if (session.cookies && typeof session.cookies === 'object' && !Array.isArray(session.cookies)) {
+      for (const [name, val] of Object.entries(session.cookies)) {
+        // queue-site cookies go to queueDomain, the rest to targetDomain
         const domain = name.startsWith('Queue-it') ? queueDomain : targetDomain;
         if (setCookie(name, val, domain)) applied++;
       }
-    
-    // fallback to the full cookies array you might have emitted
+
+    // optional fallback if you ever emit an array of cookie objects
     } else if (Array.isArray(session.cookies)) {
       for (const c of session.cookies) {
-        const domain = c.domain || (c.name.startsWith('Queue-it') ? queueDomain : targetDomain);
+        const domain = c.domain
+                     || (c.name.startsWith('Queue-it') ? queueDomain : targetDomain);
         if (setCookie(c.name, c.value, domain)) applied++;
       }
     }
-    
+
     statusEl.textContent = `✅ Applied ${applied} cookies`;
-    debugLog('📋 document.cookie: '+document.cookie);
+    debugLog('📋 document.cookie: ' + document.cookie);
+
 
 
     // 4) restore storage
