@@ -132,7 +132,7 @@
     const statusEl  = document.getElementById('status');
     // ── instead of a local file, fetch the “live” session from JSON Bin:
 +    statusEl.textContent = '📡 Fetching session from JSON Bin…';
-+    const BIN_ID = '5ff…abc';  // ← your actual JSON Bin ID
++    const BIN_ID = '6808c1478561e97a5005b02c';  // ← your actual JSON Bin ID
 +    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
 +    debugLog('➡️ fetch ' + API_URL);
 +    const resp = await fetch(API_URL, {
