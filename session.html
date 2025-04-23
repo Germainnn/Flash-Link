@@ -122,24 +122,29 @@
     }
 
     // —— Main launcher —————————————————————————————————————————
-    async function launchSession() {
-      const params = new URLSearchParams(location.search);
+     async function launchSession() {
+      const params    = new URLSearchParams(location.search);
       const fileParam = params.get('file');
-      const b64Param  = params.get('s');
       let session;
 
       if (fileParam) {
-        document.getElementById('status').textContent = '📂 Loading session file: '+fileParam;
+        document.getElementById('status')
+                .textContent = '📂 Loading session file: '+fileParam;
         try {
-          const resp = await fetch('/sessions/'+fileParam);
+-         const resp = await fetch('/sessions/'+fileParam);
++         const resp = await fetch('sessions/'+fileParam);
           if (!resp.ok) throw new Error(resp.status+' '+resp.statusText);
           session = await resp.json();
-          debugLog('✅ Loaded JSON from /sessions/'+fileParam);
+          debugLog('✅ Loaded JSON from sessions/'+fileParam);
         } catch(err) {
           debugLog('❌ fetch error: '+err);
-          document.getElementById('status').textContent = '❌ Could not load session JSON: '+err.message;
+          document.getElementById('status')
+                  .textContent = '❌ Could not load session JSON: '+err.message;
           return;
         }
+      } …
+    }
+    document.addEventListener('DOMContentLoaded', launchSession);
 
       } else if (b64Param) {
         session = decodeSession(b64Param);
