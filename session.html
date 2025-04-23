@@ -2,12 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Launching BookMyShow Session</title>
+  <title>Queue Session Handler</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin-top: 10%;
+      margin-top: 5%;
       background-color: #f9f9f9;
     }
     h2 {
@@ -31,67 +31,96 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    #details {
-      max-width: 600px;
-      margin: 2rem auto;
-      text-align: left;
-      padding: 1rem;
-      background-color: #f0f0f0;
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: white;
       border-radius: 8px;
-      display: none;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
-    .detail-item {
-      margin-bottom: 0.5rem;
+    .queue-info {
+      background-color: #fff4e5;
+      border: 1px solid #ffcc80;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 5px;
+      text-align: left;
     }
-    .success {
-      color: #2ecc71;
+    .instructions {
+      text-align: left;
+      margin: 20px 0;
     }
-    .error {
-      color: #e74c3c;
+    .instructions li {
+      margin-bottom: 10px;
     }
-    .cookie-count {
-      font-weight: bold;
+    .target-url {
+      word-break: break-all;
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      text-align: left;
+      font-family: monospace;
     }
-    #advanced-toggle {
-      background: none;
+    .button {
+      background-color: #ff1842;
+      color: white;
       border: none;
-      color: #3498db;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-weight: bold;
       cursor: pointer;
-      text-decoration: underline;
-      margin-top: 1rem;
+      margin-top: 15px;
+    }
+    .cookie-status {
+      font-size: 14px;
+      margin-top: 20px;
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      text-align: left;
+      max-height: 200px;
+      overflow-y: auto;
     }
   </style>
 </head>
 <body>
-  <h2>🔄 Launching your session...</h2>
-  <div class="spinner"></div>
-  <p id="status">Preparing your booking session...</p>
-  <button id="advanced-toggle" onclick="toggleDetails()">Show session details</button>
-  
-  <div id="details">
-    <h3>Session Details</h3>
-    <div id="session-info"></div>
-    <h3>Cookie Information</h3>
-    <div id="cookie-info"></div>
+  <div class="container">
+    <div id="queue-handler" style="display:none;">
+      <h2>🚀 Queue Session Handler</h2>
+      <div class="queue-info">
+        <p><strong>⚠️ This is a queue session, not an authenticated session.</strong></p>
+        <p>You need to wait in the queue and solve any CAPTCHA challenges to get an authenticated session.</p>
+      </div>
+      
+      <div class="instructions">
+        <h3>Follow these steps:</h3>
+        <ol>
+          <li>Click the "Open Queue" button below to continue in the queue</li>
+          <li>Wait until you reach the front of the queue</li>
+          <li>Solve any CAPTCHA or verification if required</li>
+          <li>Once you reach the booking page, you can capture that authenticated session</li>
+        </ol>
+      </div>
+      
+      <div>
+        <p>Target URL:</p>
+        <div class="target-url" id="queue-target-url"></div>
+      </div>
+      
+      <button id="open-queue-btn" class="button">Open Queue</button>
+    </div>
+    
+    <div id="auth-handler" style="display:none;">
+      <h2>🔄 Launching your session...</h2>
+      <div class="spinner"></div>
+      <p id="status">Preparing your booking session...</p>
+      <div id="cookie-status" class="cookie-status"></div>
+    </div>
   </div>
   
   <script>
-    let sessionData = null;
-    let targetUrl = null;
-    
-    function toggleDetails() {
-      const details = document.getElementById('details');
-      const toggle = document.getElementById('advanced-toggle');
-      
-      if (details.style.display === 'none' || details.style.display === '') {
-        details.style.display = 'block';
-        toggle.textContent = 'Hide session details';
-      } else {
-        details.style.display = 'none';
-        toggle.textContent = 'Show session details';
-      }
-    }
-    
     function decodeSession(encoded) {
       try {
         // Replace URL-safe base64 characters back to standard base64
@@ -124,108 +153,75 @@
           
           // Also try without Secure/SameSite for older browsers
           document.cookie = `${name}=${value}; path=/; domain=${d}; max-age=7200`;
+          
+          log(`Set cookie ${name} for domain ${d}`);
         } catch (e) {
-          console.warn(`Failed to set cookie for domain ${d}:`, e);
+          log(`Failed to set cookie for domain ${d}: ${e}`);
         }
       });
     }
     
-    function updateSessionInfo() {
-      if (!sessionData) return;
-      
-      const container = document.getElementById('session-info');
-      
-      // Extract and display token info if available
-      let tokenInfo = '';
-      const token = sessionData.queueittoken || (sessionData.queueit_url && sessionData.queueit_url.includes('queueittoken=') ? 
-            sessionData.queueit_url.split('queueittoken=')[1].split('&')[0] : null);
-      
-      if (token) {
-        tokenInfo = `<div class="detail-item"><strong>Token:</strong> ${token.substring(0, 20)}...</div>`;
-        
-        // If token contains timestamp, show it
-        if (token.includes('ts_')) {
-          try {
-            const ts = token.split('ts_')[1].split('~')[0];
-            const date = new Date(parseInt(ts) * 1000);
-            tokenInfo += `<div class="detail-item"><strong>Token Timestamp:</strong> ${date.toLocaleString()}</div>`;
-          } catch (e) {
-            console.error("Error parsing token timestamp:", e);
-          }
-        }
+    function log(message) {
+      const cookieStatus = document.getElementById("cookie-status");
+      if (cookieStatus) {
+        const line = document.createElement("div");
+        line.textContent = message;
+        cookieStatus.appendChild(line);
       }
-      
-      // Build HTML with session info
-      container.innerHTML = `
-        <div class="detail-item"><strong>Target URL:</strong> ${targetUrl || 'Unknown'}</div>
-        ${tokenInfo}
-        <div class="detail-item"><strong>Session Type:</strong> ${
-          sessionData.queueit_url ? 'QueueIT Session' : 
-          sessionData.firebase_link ? 'Firebase Session' : 
-          'Standard Session'
-        }</div>
-      `;
+      console.log(message);
     }
     
-    function updateCookieInfo() {
-      const container = document.getElementById('cookie-info');
-      const totalCookies = Object.keys(sessionData.cookies || {}).length;
+    function handleQueueSession(session) {
+      document.getElementById("queue-handler").style.display = "block";
+      document.getElementById("auth-handler").style.display = "none";
       
-      if (totalCookies === 0) {
-        container.innerHTML = '<div class="error">No cookies found in session data!</div>';
-        return;
-      }
+      // Set the target URL
+      const targetUrl = session.url || session.queueit_url;
+      document.getElementById("queue-target-url").textContent = targetUrl;
       
-      container.innerHTML = `
-        <div class="cookie-count">Setting <span class="success">${totalCookies}</span> cookies...</div>
-        <div id="cookie-status"></div>
-      `;
+      // Set up the Open Queue button
+      document.getElementById("open-queue-btn").addEventListener("click", function() {
+        window.location.href = targetUrl;
+      });
     }
     
-    function applyCookies() {
-      if (!sessionData || !sessionData.cookies) {
-        document.getElementById("status").textContent = "⚠️ No cookies found in session data.";
-        return false;
-      }
+    function handleAuthSession(session) {
+      document.getElementById("queue-handler").style.display = "none";
+      document.getElementById("auth-handler").style.display = "block";
       
-      const status = document.getElementById("cookie-status");
+      const statusElement = document.getElementById("status");
+      statusElement.textContent = "Applying session cookies...";
+      
+      // Get the target URL and domain
+      let targetUrl = session.url || session.queueit_url;
+      const domain = session._domain || (targetUrl ? new URL(targetUrl).hostname : null);
+      
+      // Apply cookies
       let cookieCount = 0;
-      
-      // First, attempt to extract domain from target URL
-      let domain = null;
-      try {
-        if (targetUrl) {
-          const url = new URL(targetUrl);
-          domain = url.hostname;
-          // Convert domain to base domain (.bookmyshow.com) format
-          if (domain.startsWith('www.')) {
-            domain = domain.substring(4);
-          }
-          domain = '.' + domain;
-        }
-      } catch (e) {
-        console.warn("Could not extract domain from URL:", e);
-      }
-      
-      // Apply each cookie
-      for (const [name, value] of Object.entries(sessionData.cookies)) {
-        try {
+      if (session.cookies) {
+        for (const [name, value] of Object.entries(session.cookies)) {
           setCookie(name, value, domain);
           cookieCount++;
-          
-          if (status) {
-            status.innerHTML += `<div class="success">✓ Set: ${name}</div>`;
-          }
-        } catch (e) {
-          console.error(`Failed to set cookie ${name}:`, e);
-          if (status) {
-            status.innerHTML += `<div class="error">✗ Failed: ${name} - ${e.message}</div>`;
-          }
         }
       }
       
-      document.getElementById("status").textContent = `✅ Applied ${cookieCount} cookies. Preparing redirect...`;
-      return cookieCount > 0;
+      log(`Applied ${cookieCount} cookies for domain: ${domain}`);
+      
+      // Start redirect countdown
+      let countdown = 5;
+      statusElement.textContent = `✅ Session ready. Redirecting in ${countdown}...`;
+      
+      const interval = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          clearInterval(interval);
+          // Redirect to the target URL
+          log(`Redirecting to: ${targetUrl}`);
+          window.location.href = targetUrl;
+        } else {
+          statusElement.textContent = `✅ Session ready. Redirecting in ${countdown}...`;
+        }
+      }, 1000);
     }
     
     function launchSession() {
@@ -238,53 +234,25 @@
       }
       
       // Decode the session data
-      sessionData = decodeSession(encoded);
+      const session = decodeSession(encoded);
       
-      if (!sessionData) {
+      if (!session) {
         document.getElementById("status").textContent = "❌ Invalid or corrupted session data.";
         return;
       }
       
-      // Determine the target URL
-      targetUrl = sessionData.queueit_url || sessionData.url;
+      // Determine if this is a queue session or an authenticated session
+      const isQueueSession = session._is_queue_session || 
+                            (session.url && session.url.includes("queue-it")) ||
+                            (session.queueit_url && session.queueit_url.includes("queue-it")) ||
+                            (session.enqueuetoken && !session.queueittoken);
       
-      if (!targetUrl) {
-        document.getElementById("status").textContent = "❌ No target URL found in session.";
-        return;
+      // Handle the session type appropriately
+      if (isQueueSession) {
+        handleQueueSession(session);
+      } else {
+        handleAuthSession(session);
       }
-      
-      // Update the session information display
-      updateSessionInfo();
-      updateCookieInfo();
-      
-      // Try to apply the cookies
-      const cookiesApplied = applyCookies();
-      
-      // Start redirect countdown
-      let countdown = cookiesApplied ? 5 : 3;
-      document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
-      
-      const interval = setInterval(() => {
-        countdown--;
-        if (countdown <= 0) {
-          clearInterval(interval);
-          // Store the session in localStorage before redirecting
-          try {
-            localStorage.setItem('lastSession', JSON.stringify({
-              timestamp: new Date().toISOString(),
-              targetUrl: targetUrl,
-              sessionData: sessionData
-            }));
-          } catch (e) {
-            console.warn("Could not save session to localStorage:", e);
-          }
-          
-          // Redirect to the target URL
-          window.location.href = targetUrl;
-        } else {
-          document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
-        }
-      }, 1000);
     }
     
     // Start the process
