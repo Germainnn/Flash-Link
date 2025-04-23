@@ -159,16 +159,30 @@
 
     debugLog('Session data:\n' + JSON.stringify(session, null, 2));
 
-    // 3) apply cookies
+    // 3) apply cookies (supports both array & dict)
     statusEl.textContent = '🍪 Applying cookies…';
-    const domain = session._target_domain || session._domain || null;
     let applied = 0;
-    if (session.cookies && typeof session.cookies === 'object') {
-      for (const [k,v] of Object.entries(session.cookies)) {
-        if (setCookie(k, v, domain)) applied++;
+    
+    // 1) if you saved cookie_dict (name→value), use that
+    if (session.cookie_dict && typeof session.cookie_dict === 'object') {
+      for (const [name, val] of Object.entries(session.cookie_dict)) {
+        if (setCookie(name, val, session._domain)) applied++;
       }
+    
+    // 2) otherwise fall back to the full cookies[] array
+    } else if (Array.isArray(session.cookies)) {
+      for (const c of session.cookies) {
+        // each c has .name, .value and (optionally) .domain
+        const cookiedomain = c.domain || session._domain;
+        if (setCookie(c.name, c.value, cookiedomain)) applied++;
+      }
+    
+    } else {
+      debugLog('⚠️ No cookies found in session.cookie_dict or session.cookies');
     }
+    
     statusEl.textContent = `✅ Applied ${applied} cookies`;
+    debugLog('📋 document.cookie: ' + document.cookie);
 
     // 4) restore storage
     if (session.storage) {
