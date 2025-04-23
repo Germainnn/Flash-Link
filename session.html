@@ -4,200 +4,160 @@
   <meta charset="UTF-8">
   <title>Launching BookMyShow Session</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin-top: 10%;
-      background-color: #f9f9f9;
-    }
-    h2 {
-      font-size: 1.5rem;
-      color: #444;
-    }
-    #status {
-      font-size: 1.1rem;
-      margin-top: 1rem;
-      word-break: break-all;
-    }
-    .spinner {
-      margin: 2rem auto;
-      border: 5px solid #eee;
-      border-top: 5px solid #ff1842;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      0%   { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    #debug-info {
-      margin-top: 20px;
-      text-align: left;
-      font-size: 12px;
-      max-height: 200px;
-      overflow-y: auto;
-      background-color: #f5f5f5;
-      padding: 10px;
-      border-radius: 5px;
-      display: none;
-      white-space: pre-wrap;
-    }
-    .debug-toggle {
-      color: #999;
-      cursor: pointer;
-      margin-top: 20px;
-      font-size: 12px;
-      text-decoration: underline;
-    }
+    /* … your existing CSS … */
   </style>
 </head>
 <body>
   <h2>🔄 Launching your session...</h2>
   <div class="spinner"></div>
   <p id="status">Preparing your booking session...</p>
-  <div id="debug-info"></div>
+  <div id="debug-info" style="display:none;white-space:pre-wrap;"></div>
   <div class="debug-toggle" onclick="toggleDebug()">Show Debug Info</div>
 
   <script>
-    // —— Debug helper —————————————————————————————————————————————
-    function debugLog(msg) {
-      console.log(msg);
-      const dbg = document.getElementById('debug-info');
-      const d = document.createElement('div');
-      d.textContent = msg;
-      dbg.appendChild(d);
+  // ——— Debug helpers —————————————————————————————————————————————————
+  function debugLog(msg) {
+    console.log(msg);
+    const dbg = document.getElementById('debug-info');
+    const d   = document.createElement('div');
+    d.textContent = msg;
+    dbg.appendChild(d);
+  }
+  function toggleDebug() {
+    const dbg = document.getElementById('debug-info');
+    const btn = document.querySelector('.debug-toggle');
+    if (dbg.style.display === 'block') {
+      dbg.style.display = 'none'; btn.textContent = 'Show Debug Info';
+    } else {
+      dbg.style.display = 'block'; btn.textContent = 'Hide Debug Info';
     }
-    function toggleDebug() {
-      const dbg = document.getElementById('debug-info');
-      const btn = document.querySelector('.debug-toggle');
-      if (dbg.style.display==='block') {
-        dbg.style.display='none'; btn.textContent='Show Debug Info';
+  }
+
+  // ——— Base64 decoder —————————————————————————————————————————————————
+  function decodeSession(b64) {
+    try {
+      const fixed = b64.replace(/-/g,'+').replace(/_/g,'/');
+      const json  = atob(decodeURIComponent(fixed));
+      return JSON.parse(json);
+    } catch (e) {
+      throw new Error('decodeSession failed: ' + e.message);
+    }
+  }
+
+  // ——— Cookie setter —————————————————————————————————————————————————
+  function extractRootDomain(d) {
+    if (!d) return null;
+    d = d.replace(/^\./,'');
+    const parts = d.split('.');
+    return parts.length>1 ? '.'+parts.slice(-2).join('.') : '.'+d;
+  }
+  function setCookie(name, val, domain) {
+    try {
+      if (domain) {
+        document.cookie = `${name}=${val}; domain=${domain}; path=/; max-age=7200; Secure; SameSite=None`;
+        debugLog(`🍪 ${name} → ${domain}`);
+        const root = extractRootDomain(domain);
+        if (root !== domain) {
+          document.cookie = `${name}=${val}; domain=${root}; path=/; max-age=7200; Secure; SameSite=None`;
+          debugLog(`🍪 ${name} → ${root}`);
+        }
+      }
+      // fallback no‐domain
+      document.cookie = `${name}=${val}; path=/; max-age=7200`;
+      debugLog(`🍪 ${name} → (no domain)`);
+      return true;
+    } catch (e) {
+      debugLog(`⚠️ setCookie(${name}): ${e.message}`);
+      return false;
+    }
+  }
+
+  // ——— Main launcher —————————————————————————————————————————————————
+  document.addEventListener('DOMContentLoaded', () => {
+    launchSession().catch(err => {
+      console.error(err);
+      document.getElementById('status').textContent =
+        '❌ ' + (err.message || err);
+      toggleDebug();  // show details
+    });
+  });
+
+  async function launchSession() {
+    const statusEl  = document.getElementById('status');
+    const params    = new URLSearchParams(location.search);
+    const fileParam = params.get('file');
+    const b64Param  = params.get('s');
+    let session;
+
+    statusEl.textContent = '🔍 Resolving session…';
+
+    // 1) load from JSON file
+    if (fileParam) {
+      statusEl.textContent = `📂 Loading session file: ${fileParam}`;
+      const path = `./sessions/${fileParam}`;
+      debugLog('➡️ fetch ' + path);
+      const resp = await fetch(path);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      session = await resp.json();
+      debugLog('✔️ loaded JSON from ' + path);
+
+    // 2) or decode from ?s=
+    } else if (b64Param) {
+      statusEl.textContent = '🔑 Decoding session string…';
+      session = decodeSession(b64Param);
+      debugLog('✔️ decoded session from Base64');
+
+    } else {
+      throw new Error('No session specified (use ?file=… or ?s=…)');
+    }
+
+    debugLog('Session data:\n' + JSON.stringify(session, null, 2));
+
+    // 3) apply cookies
+    statusEl.textContent = '🍪 Applying cookies…';
+    const domain = session._target_domain || session._domain || null;
+    let applied = 0;
+    if (session.cookies && typeof session.cookies === 'object') {
+      for (const [k,v] of Object.entries(session.cookies)) {
+        if (setCookie(k, v, domain)) applied++;
+      }
+    }
+    statusEl.textContent = `✅ Applied ${applied} cookies`;
+
+    // 4) restore storage
+    if (session.storage) {
+      statusEl.textContent = '💾 Restoring storage…';
+      for (let [k,v] of Object.entries(session.storage.localStorage||{})) {
+        localStorage.setItem(k, v);
+      }
+      for (let [k,v] of Object.entries(session.storage.sessionStorage||{})) {
+        sessionStorage.setItem(k, v);
+      }
+    }
+
+    // 5) prepare redirect URL
+    let target = session.queueit_url || session.url;
+    if (!target) throw new Error('No target URL in session');
+    if (session.queueittoken && !target.includes('queueittoken=')) {
+      const sep = target.includes('?') ? '&' : '?';
+      target += sep + 'queueittoken=' + encodeURIComponent(session.queueittoken);
+      debugLog('🔗 appended token → ' + target);
+    }
+    debugLog('➡️ final redirect → ' + target);
+
+    // 6) countdown + jump
+    let n = 3;
+    statusEl.textContent = `✅ Ready. Redirecting in ${n}…`;
+    const iv = setInterval(() => {
+      n--;
+      if (n > 0) {
+        statusEl.textContent = `✅ Ready. Redirecting in ${n}…`;
       } else {
-        dbg.style.display='block'; btn.textContent='Hide Debug Info';
+        clearInterval(iv);
+        window.location.replace(target);
       }
-    }
-
-    // —— Base64 decode path ————————————————————————————————————
-    function decodeSession(encoded) {
-      try {
-        const b64 = encoded.replace(/-/g,'+').replace(/_/g,'/');
-        const json = atob(b64);
-        return JSON.parse(json);
-      } catch (e) {
-        debugLog('❌ decodeSession error: '+e);
-        document.getElementById('status').textContent = '❌ Error decoding session: '+e.message;
-      }
-      return null;
-    }
-
-    // —— Cookie setter —————————————————————————————————————————
-    function extractRootDomain(d) {
-      if (!d) return null;
-      d = d.replace(/^\./,'');
-      const parts = d.split('.');
-      return parts.length>1
-        ? '.'+parts.slice(-2).join('.')
-        : '.'+d;
-    }
-    function setCookie(name,value,domain) {
-      try {
-        if (domain) {
-          document.cookie = `${name}=${value}; path=/; domain=${domain}; max-age=7200; Secure; SameSite=None`;
-          debugLog(`🍪 ${name}→${domain}`);
-          const root = extractRootDomain(domain);
-          if (root!==domain) {
-            document.cookie = `${name}=${value}; path=/; domain=${root}; max-age=7200; Secure; SameSite=None`;
-            debugLog(`🍪 ${name}→${root}`);
-          }
-        }
-        document.cookie = `${name}=${value}; path=/; max-age=7200`;
-        debugLog(`🍪 ${name} (no domain)`);
-        return true;
-      } catch(e) {
-        debugLog('⚠️ setCookie '+name+': '+e);
-        return false;
-      }
-    }
-
-    // —— Main launcher —————————————————————————————————————————
-     async function launchSession() {
-      const params    = new URLSearchParams(location.search);
-      const fileParam = params.get('file');
-      let session;
-
-      if (fileParam) {
-        document.getElementById('status')
-                .textContent = '📂 Loading session file: '+fileParam;
-        try {
--         const resp = await fetch('/sessions/'+fileParam);
-+         const resp = await fetch('sessions/'+fileParam);
-          if (!resp.ok) throw new Error(resp.status+' '+resp.statusText);
-          session = await resp.json();
-          debugLog('✅ Loaded JSON from sessions/'+fileParam);
-        } catch(err) {
-          debugLog('❌ fetch error: '+err);
-          document.getElementById('status')
-                  .textContent = '❌ Could not load session JSON: '+err.message;
-          return;
-        }
-      } …
-    }
-    document.addEventListener('DOMContentLoaded', launchSession);
-
-      } else if (b64Param) {
-        session = decodeSession(b64Param);
-        if (!session) return;
-        debugLog('✅ Decoded session from Base64.');
-      } else {
-        document.getElementById('status').textContent = '❌ No session specified in URL (use ?file=… or ?s=…)';
-        return;
-      }
-
-      debugLog('Session data:\n'+JSON.stringify(session,null,2));
-
-      // figure target URL + domain
-      let target = session.queueit_url || session.url;
-      const domain = session._domain || (target ? new URL(target).hostname : null);
-      debugLog(`→ target=${target}\n→ domain=${domain}`);
-
-      // apply cookies
-      const ck = session.cookies;
-      let count=0;
-      if (ck && typeof ck==='object') {
-        for (let k in ck) {
-          if (setCookie(k, ck[k], domain)) count++;
-        }
-        document.getElementById('status').textContent =
-          `✅ Applied ${count} cookies. Preparing redirect…`;
-      } else {
-        document.getElementById('status').textContent =
-          `⚠️ No cookies found in session data.`;
-      }
-
-      // inject token if needed
-      if (session.queueittoken && !target.includes('queueittoken=')) {
-        const sep = target.includes('?') ? '&' : '?';
-        target += sep+'queueittoken='+session.queueittoken;
-        debugLog('→ added queueittoken to URL');
-      }
-
-      // countdown + redirect
-      let n=3;
-      const st = document.getElementById('status');
-      const iv = setInterval(()=>{
-        if (--n>0) {
-          st.textContent = `✅ Session ready. Redirecting in ${n}…`;
-        } else {
-          clearInterval(iv);
-          debugLog('➡️ redirect to '+target);
-          window.location.href = target;
-        }
-      },1000);
-    }
-
-    document.addEventListener('DOMContentLoaded', launchSession);
+    }, 1000);
+  }
   </script>
 </body>
 </html>
