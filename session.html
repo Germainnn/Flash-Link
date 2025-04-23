@@ -1,9 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <title>Launching BookMyShow Session</title>
-  <!-- your existing styles… -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 10%;
+      background-color: #f9f9f9;
+    }
+    h2 {
+      font-size: 1.5rem;
+      color: #444;
+    }
+    #status {
+      font-size: 1.1rem;
+      margin-top: 1rem;
+      word-break: break-all;
+    }
+    .spinner {
+      margin: 2rem auto;
+      border: 5px solid #eee;
+      border-top: 5px solid #ff1842;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #debug-info {
+      margin-top: 20px;
+      text-align: left;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      white-space: pre-wrap;
+    }
+    .debug-toggle {
+      color: #999;
+      cursor: pointer;
+      margin-top: 20px;
+      font-size: 12px;
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
   <h2>🔄 Launching your session...</h2>
@@ -12,121 +60,139 @@
   <div id="debug-info"></div>
   <div class="debug-toggle" onclick="toggleDebug()">Show Debug Info</div>
 
-  <!-- pako only needed if you ever fall back to compressed URLs -->
-  <script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js"></script>
-
   <script>
+    // —— Debug helper —————————————————————————————————————————————
     function debugLog(msg) {
-      const d = document.getElementById("debug-info");
-      const e = document.createElement("div");
-      e.textContent = msg;
-      d.appendChild(e);
       console.log(msg);
+      const dbg = document.getElementById('debug-info');
+      const d = document.createElement('div');
+      d.textContent = msg;
+      dbg.appendChild(d);
     }
     function toggleDebug() {
-      const d = document.getElementById("debug-info");
-      const t = document.querySelector(".debug-toggle");
-      if (d.style.display === "block") {
-        d.style.display = "none"; t.textContent = "Show Debug Info";
+      const dbg = document.getElementById('debug-info');
+      const btn = document.querySelector('.debug-toggle');
+      if (dbg.style.display==='block') {
+        dbg.style.display='none'; btn.textContent='Show Debug Info';
       } else {
-        d.style.display = "block"; t.textContent = "Hide Debug Info";
+        dbg.style.display='block'; btn.textContent='Hide Debug Info';
       }
     }
-    function showError(msg) {
-      document.getElementById("status").textContent = msg;
-    }
 
-    async function loadSession() {
-      const p = new URLSearchParams(location.search);
-      let session = null;
-
-      if (p.has("file")) {
-        const fn = p.get("file");
-        debugLog("📂 Loading session file: " + fn);
-        try {
-          const res = await fetch(`/sessions/${fn}`);
-          if (!res.ok) throw new Error(res.statusText);
-          session = await res.json();
-        } catch (e) {
-          return showError("❌ Could not load session JSON: " + e.message);
-        }
-      }
-      else if (p.has("s")) {
-        // legacy: base64 or compressed
-        session = decodeSession(p.get("s"));
-        if (!session) return;
-      }
-      else {
-        return showError("❌ No session data found in URL.");
-      }
-
-      debugLog("Session data: " + JSON.stringify(session, null,2));
-      proceedWithSession(session);
-    }
-
+    // —— Base64 decode path ————————————————————————————————————
     function decodeSession(encoded) {
       try {
-        // if you ever compressed it with zlib + base64:
-        // const bin = atob(encoded.replace(/-/g,'+').replace(/_/g,'/'));
-        // const buf = Uint8Array.from(bin, c=>c.charCodeAt(0));
-        // const str = pako.inflate(buf, { to: 'string' });
-        // return JSON.parse(str);
-
-        // otherwise simple base64→JSON:
-        const b = atob(encoded.replace(/-/g,'+').replace(/_/g,'/'));
-        return JSON.parse(b);
+        const b64 = encoded.replace(/-/g,'+').replace(/_/g,'/');
+        const json = atob(b64);
+        return JSON.parse(json);
       } catch (e) {
-        showError("❌ Failed to decode session: " + e.message);
-        debugLog("Decode error: " + e.stack);
-        return null;
+        debugLog('❌ decodeSession error: '+e);
+        document.getElementById('status').textContent = '❌ Error decoding session: '+e.message;
+      }
+      return null;
+    }
+
+    // —— Cookie setter —————————————————————————————————————————
+    function extractRootDomain(d) {
+      if (!d) return null;
+      d = d.replace(/^\./,'');
+      const parts = d.split('.');
+      return parts.length>1
+        ? '.'+parts.slice(-2).join('.')
+        : '.'+d;
+    }
+    function setCookie(name,value,domain) {
+      try {
+        if (domain) {
+          document.cookie = `${name}=${value}; path=/; domain=${domain}; max-age=7200; Secure; SameSite=None`;
+          debugLog(`🍪 ${name}→${domain}`);
+          const root = extractRootDomain(domain);
+          if (root!==domain) {
+            document.cookie = `${name}=${value}; path=/; domain=${root}; max-age=7200; Secure; SameSite=None`;
+            debugLog(`🍪 ${name}→${root}`);
+          }
+        }
+        document.cookie = `${name}=${value}; path=/; max-age=7200`;
+        debugLog(`🍪 ${name} (no domain)`);
+        return true;
+      } catch(e) {
+        debugLog('⚠️ setCookie '+name+': '+e);
+        return false;
       }
     }
 
-    function setCookie(name, value, domain) {
-      document.cookie = `${name}=${value};path=/;domain=${domain};max-age=7200;Secure;SameSite=None`;
-      debugLog(`Set ${name} on ${domain}`);
-      // fallback without domain:
-      document.cookie = `${name}=${value};path=/;max-age=7200`;
-      return true;
-    }
+    // —— Main launcher —————————————————————————————————————————
+    async function launchSession() {
+      const params = new URLSearchParams(location.search);
+      const fileParam = params.get('file');
+      const b64Param  = params.get('s');
+      let session;
 
-    function proceedWithSession(session) {
-      const dom   = session._domain || (new URL(session.url||session.queueit_url, location).hostname);
-      let target  = session.queueit_url || session.url;
-      debugLog("Target URL: " + target);
+      if (fileParam) {
+        document.getElementById('status').textContent = '📂 Loading session file: '+fileParam;
+        try {
+          const resp = await fetch('/sessions/'+fileParam);
+          if (!resp.ok) throw new Error(resp.status+' '+resp.statusText);
+          session = await resp.json();
+          debugLog('✅ Loaded JSON from /sessions/'+fileParam);
+        } catch(err) {
+          debugLog('❌ fetch error: '+err);
+          document.getElementById('status').textContent = '❌ Could not load session JSON: '+err.message;
+          return;
+        }
+
+      } else if (b64Param) {
+        session = decodeSession(b64Param);
+        if (!session) return;
+        debugLog('✅ Decoded session from Base64.');
+      } else {
+        document.getElementById('status').textContent = '❌ No session specified in URL (use ?file=… or ?s=…)';
+        return;
+      }
+
+      debugLog('Session data:\n'+JSON.stringify(session,null,2));
+
+      // figure target URL + domain
+      let target = session.queueit_url || session.url;
+      const domain = session._domain || (target ? new URL(target).hostname : null);
+      debugLog(`→ target=${target}\n→ domain=${domain}`);
 
       // apply cookies
       const ck = session.cookies;
-      let count = 0;
-      if (typeof ck === 'object') {
-        for (const [k,v] of Object.entries(ck)) {
-          setCookie(k, v, dom);
-          count++;
+      let count=0;
+      if (ck && typeof ck==='object') {
+        for (let k in ck) {
+          if (setCookie(k, ck[k], domain)) count++;
         }
-      }
-      document.getElementById("status").textContent = `✅ Applied ${count} cookies. Redirecting soon…`;
-
-      // append token if missing
-      if (session.queueittoken && !target.includes("queueittoken=")) {
-        const sep = target.includes("?") ? "&" : "?";
-        target += `${sep}queueittoken=${session.queueittoken}`;
+        document.getElementById('status').textContent =
+          `✅ Applied ${count} cookies. Preparing redirect…`;
+      } else {
+        document.getElementById('status').textContent =
+          `⚠️ No cookies found in session data.`;
       }
 
-      // redirect after a short countdown
-      let sec = 3;
-      const st = document.getElementById("status");
-      const iv = setInterval(() => {
-        if (--sec===0) {
-          clearInterval(iv);
-          debugLog("Redirect→ " + target);
-          location.href = target;
+      // inject token if needed
+      if (session.queueittoken && !target.includes('queueittoken=')) {
+        const sep = target.includes('?') ? '&' : '?';
+        target += sep+'queueittoken='+session.queueittoken;
+        debugLog('→ added queueittoken to URL');
+      }
+
+      // countdown + redirect
+      let n=3;
+      const st = document.getElementById('status');
+      const iv = setInterval(()=>{
+        if (--n>0) {
+          st.textContent = `✅ Session ready. Redirecting in ${n}…`;
         } else {
-          st.textContent = `✅ Session ready. Redirecting in ${sec}…`;
+          clearInterval(iv);
+          debugLog('➡️ redirect to '+target);
+          window.location.href = target;
         }
-      }, 1000);
+      },1000);
     }
 
-    document.addEventListener("DOMContentLoaded", loadSession);
+    document.addEventListener('DOMContentLoaded', launchSession);
   </script>
 </body>
 </html>
