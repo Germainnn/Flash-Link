@@ -59,168 +59,154 @@
   <div class="debug-toggle" onclick="toggleDebug()">Show Debug Info</div>
   
   <script>
-    // Debug helper
-    function debugLog(message) {
-      const debugElement = document.getElementById("debug-info");
-      const msgElement = document.createElement("div");
-      msgElement.textContent = message;
-      debugElement.appendChild(msgElement);
-      console.log(message);
+    // ————— Debug helpers —————
+    function debugLog(msg) {
+      console.log(msg);
+      const d = document.getElementById("debug-info");
+      const ln = document.createElement("div");
+      ln.textContent = msg;
+      d.appendChild(ln);
     }
-    
     function toggleDebug() {
-      const debugElement = document.getElementById("debug-info");
-      const toggleElement = document.querySelector(".debug-toggle");
-      if (debugElement.style.display === "none" || !debugElement.style.display) {
-        debugElement.style.display = "block";
-        toggleElement.textContent = "Hide Debug Info";
+      const d = document.getElementById("debug-info");
+      const t = document.querySelector(".debug-toggle");
+      if (d.style.display === "block") {
+        d.style.display = "none"; t.textContent = "Show Debug Info";
       } else {
-        debugElement.style.display = "none";
-        toggleElement.textContent = "Show Debug Info";
+        d.style.display = "block"; t.textContent = "Hide Debug Info";
       }
     }
-    
-    function decodeSession(encoded) {
+
+    // ————— Session decoding —————
+    function decodeSession(s) {
       try {
-        // Replace URL-safe base64 characters back to standard base64
-        const base64Fixed = encoded.replace(/-/g, '+').replace(/_/g, '/');
-        const decoded = atob(base64Fixed);
-        return JSON.parse(decoded);
+        // url-safe → standard base64
+        let b = s.replace(/-/g, "+").replace(/_/g, "/");
+        const json = atob(b);
+        return JSON.parse(json);
       } catch (e) {
-        debugLog("❌ Failed to decode session: " + e.message);
-        document.getElementById("status").textContent = `❌ Error decoding session: ${e.message}`;
+        debugLog("❌ decodeSession failed: " + e);
+        document.getElementById("status").textContent = "❌ Invalid session data.";
         return null;
       }
     }
-    
+
+    // ————— Cookie setter (tries domain, .domain, root-domain, no-domain) —————
+    function extractRootDomain(d) {
+      if (!d) return null;
+      let parts = d.replace(/^\./, "").split(".");
+      if (parts.length >= 2) return "." + parts.slice(-2).join(".");
+      return "." + parts[0];
+    }
     function setCookie(name, value, domain) {
       try {
-        // First try with the specific domain
+        // 1) exact domain
         if (domain) {
-          // Try with the domain provided
-          document.cookie = `${name}=${value}; path=/; domain=${domain}; max-age=7200; Secure; SameSite=None`;
-          debugLog(`Set cookie ${name} for domain ${domain}`);
-          
-          // Try with dot prefix if not already present
-          if (!domain.startsWith('.')) {
-            document.cookie = `${name}=${value}; path=/; domain=.${domain}; max-age=7200; Secure; SameSite=None`;
-            debugLog(`Set cookie ${name} for domain .${domain}`);
+          document.cookie = `${name}=${value}; domain=${domain}; path=/; Secure; SameSite=None`;
+          debugLog(`cookie→${domain}: ${name}`);
+          // 2) dot-prefixed
+          if (!domain.startsWith(".")) {
+            document.cookie = `${name}=${value}; domain=.${domain}; path=/; Secure; SameSite=None`;
+            debugLog(`cookie→.${domain}: ${name}`);
           }
         }
-        
-        // Also try with the determined root domain
-        const rootDomain = extractRootDomain(domain);
-        if (rootDomain && rootDomain !== domain) {
-          document.cookie = `${name}=${value}; path=/; domain=${rootDomain}; max-age=7200; Secure; SameSite=None`;
-          debugLog(`Set cookie ${name} for root domain ${rootDomain}`);
+        // 3) root domain
+        const root = extractRootDomain(domain);
+        if (root && root !== domain) {
+          document.cookie = `${name}=${value}; domain=${root}; path=/; Secure; SameSite=None`;
+          debugLog(`cookie→${root}: ${name}`);
         }
-        
-        // Set cookie without domain specification as a fallback
-        document.cookie = `${name}=${value}; path=/; max-age=7200`;
-        debugLog(`Set cookie ${name} without domain specification`);
-        
+        // 4) no-domain fallback
+        document.cookie = `${name}=${value}; path=/`;
+        debugLog(`cookie→<none>: ${name}`);
         return true;
       } catch (e) {
-        debugLog(`⚠️ Error setting cookie ${name}: ${e.message}`);
+        debugLog(`⚠️ setCookie ${name} failed: ${e}`);
         return false;
       }
     }
-    
-    function extractRootDomain(domain) {
-      if (!domain) return null;
-      
-      // Remove any leading dots
-      domain = domain.replace(/^\./, '');
-      
-      // Split by dots and get the last two parts if there are at least two
-      const parts = domain.split('.');
-      if (parts.length >= 2) {
-        return '.' + parts.slice(-2).join('.');
-      }
-      
-      return '.' + domain;
-    }
-    
+
+    // ————— Core launcher —————
     function launchSession() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const encoded = urlParams.get("s");
-      
-      if (!encoded) {
-        document.getElementById("status").textContent = "❌ No session data found in URL.";
+      const params = new URLSearchParams(location.search);
+      const s = params.get("s");
+      if (!s) {
+        document.getElementById("status").textContent = "❌ No session data.";
         return;
       }
-      
-      const session = decodeSession(encoded);
-      
-      if (!session) {
-        document.getElementById("status").textContent = "❌ Invalid or corrupted session.";
-        return;
+
+      const session = decodeSession(s);
+      if (!session) return;
+      debugLog("🎫 session: " + JSON.stringify(session, null,2));
+
+      // — 1) replay storage —
+      if (session.storage) {
+        (session.storage.localStorage || {}).forEach
+          ? session.storage.localStorage.forEach((_,__)=>{})
+          : Object.entries(session.storage.localStorage || {})
+              .forEach(([k,v])=>{
+                localStorage.setItem(k,v);
+                debugLog(`localStorage[${k}]=${v}`);
+              });
+        Object.entries(session.storage.sessionStorage || {})
+              .forEach(([k,v])=>{
+                sessionStorage.setItem(k,v);
+                debugLog(`sessionStorage[${k}]=${v}`);
+              });
       }
-      
-      debugLog("Session data: " + JSON.stringify(session, null, 2));
-      
-      // Determine the target URL and domain
+
+      // — 2) determine target URL & domain —
       let targetUrl = session.queueit_url || session.url;
-      const domain = session._domain || (targetUrl ? new URL(targetUrl).hostname : null);
-      
-      debugLog(`Target URL: ${targetUrl}`);
-      debugLog(`Domain: ${domain}`);
-      
-      // Set all cookies
-      if (typeof session.cookies === 'object') {
-        let cookieCount = 0;
-        
-        // First check if we have a dictionary or array of cookies
-        if (Array.isArray(session.cookies)) {
-          // Handle array format
-          for (const cookie of session.cookies) {
-            if (cookie.name && cookie.value) {
-              const cookieDomain = cookie.domain || domain;
-              if (setCookie(cookie.name, cookie.value, cookieDomain)) {
-                cookieCount++;
-              }
-            }
-          }
-        } else {
-          // Handle dictionary format
-          for (const [name, value] of Object.entries(session.cookies)) {
-            if (setCookie(name, value, domain)) {
-              cookieCount++;
-            }
-          }
-        }
-        
-        document.getElementById("status").textContent = `✅ Applied ${cookieCount} cookies. Preparing redirect...`;
+      const domain = session._target_domain
+                   || session._domain
+                   || (targetUrl ? new URL(targetUrl).hostname : null);
+      debugLog(`→ targetUrl: ${targetUrl}`);
+      debugLog(`→ cookie domain: ${domain}`);
+
+      // — 3) normalize cookies array vs. object —
+      let cookies = [];
+      if (Array.isArray(session.cookies)) {
+        cookies = session.cookies.map(c=>({
+          name: c.name, 
+          value: c.value, 
+          domain: c.domain||domain
+        }));
       } else {
-        document.getElementById("status").textContent = "⚠️ No cookies found in session data.";
+        cookies = Object.entries(session.cookies||{})
+                        .map(([n,v])=>({ name:n, value:v, domain }));
       }
-      
-      // Handle tokens if available
-      if (session.queueittoken && !targetUrl.includes('queueittoken=')) {
-        // Add queueittoken to URL if not already present
-        debugLog("Adding queueittoken to URL");
-        const separator = targetUrl.includes('?') ? '&' : '?';
-        targetUrl = `${targetUrl}${separator}queueittoken=${session.queueittoken}`;
+
+      // — 4) apply cookies —
+      let applied = 0;
+      cookies.forEach(c=>{
+        if (setCookie(c.name, c.value, c.domain)) applied++;
+      });
+      document.getElementById("status").textContent = `✅ ${applied} cookies set.`;
+
+      // — 5) append queue token if needed —
+      const token = session.queueittoken || session.enqueuetoken;
+      if (token && !/queueittoken=/.test(targetUrl)) {
+        const sep = targetUrl.includes("?") ? "&" : "?";
+        targetUrl += `${sep}queueittoken=${token}`;
+        debugLog("→ appended token to URL");
       }
-      
-      // Start redirect countdown
-      let countdown = 3;
-      document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
-      
-      const interval = setInterval(() => {
-        countdown--;
-        if (countdown <= 0) {
-          clearInterval(interval);
-          debugLog(`Redirecting to: ${targetUrl}`);
+
+      // — 6) countdown & redirect —
+      let cnt = 3;
+      const st = document.getElementById("status");
+      const iv = setInterval(()=>{
+        if (!--cnt) {
+          clearInterval(iv);
+          debugLog("🔀 redirecting to " + targetUrl);
           window.location.href = targetUrl;
         } else {
-          document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
+          st.textContent = `✅ Ready—redirect in ${cnt}…`;
         }
       }, 1000);
     }
-    
-    // Start the session launching process
-    document.addEventListener('DOMContentLoaded', launchSession);
+
+    // kick it off
+    document.addEventListener("DOMContentLoaded", launchSession);
   </script>
 </body>
 </html>
