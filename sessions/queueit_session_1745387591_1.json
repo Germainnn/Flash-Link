@@ -1,0 +1,119 @@
+{
+  "url": "https://bookmyshowsg.queue-it.net/?c=bookmyshowsg&e=splanet20250423jcmay&ver=javascript-4.3.1&cver=2039&man=starplanet-booking-60JC25KL-JCMAYBANK&t=https%3A%2F%2Fstarplanet.bigtix.io%2Fbooking%2Fsaleslink%2FJCMAYBANK%3Fpromo%3DJACKYMAYBANK&kupver=cloudflare-4.2.2",
+  "initial_url": "https://bookmyshowsg.queue-it.net/?c=bookmyshowsg&e=splanet20250423jcmay&ver=javascript-4.3.1&cver=2039&man=starplanet-booking-60JC25KL-JCMAYBANK&enqueuetoken=eyJ0eXAiOiJRVDEiLCJlbmMiOiJBRVMyNTYiLCJpc3MiOjE3NDUzODc1NzcyOTksImV4cCI6MTc0NTM4NzgxNzI5OSwidGkiOiIxZmU1MzE2Yy1kODlhLTQxYzktYTBjMC1iMTQ0OGUyZDVmYjYiLCJjIjoiYm9va215c2hvd3NnIiwiZSI6InNwbGFuZXQyMDI1MDQyM2pjbWF5IiwiaXAiOiIyMDAxOmU2ODo1NDBlOmQxZjk6ZGM3MTpkYmNiOjE2ZDI6YTU2MCJ9.QIsW5ySqNh79TXSdxowaRA.qy6lmE5chlBFT_WBqMgQpZjZEPIWvsmWb-oXrHP3Jfs&t=https%3A%2F%2Fstarplanet.bigtix.io%2Fbooking%2Fsaleslink%2FJCMAYBANK%3Fpromo%3DJACKYMAYBANK&kupver=cloudflare-4.2.2",
+  "queueit_url": "https://bookmyshowsg.queue-it.net/?c=bookmyshowsg&e=splanet20250423jcmay&ver=javascript-4.3.1&cver=2039&man=starplanet-booking-60JC25KL-JCMAYBANK&enqueuetoken=eyJ0eXAiOiJRVDEiLCJlbmMiOiJBRVMyNTYiLCJpc3MiOjE3NDUzODc1NzcyOTksImV4cCI6MTc0NTM4NzgxNzI5OSwidGkiOiIxZmU1MzE2Yy1kODlhLTQxYzktYTBjMC1iMTQ0OGUyZDVmYjYiLCJjIjoiYm9va215c2hvd3NnIiwiZSI6InNwbGFuZXQyMDI1MDQyM2pjbWF5IiwiaXAiOiIyMDAxOmU2ODo1NDBlOmQxZjk6ZGM3MTpkYmNiOjE2ZDI6YTU2MCJ9.QIsW5ySqNh79TXSdxowaRA.qy6lmE5chlBFT_WBqMgQpZjZEPIWvsmWb-oXrHP3Jfs&t=https%3A%2F%2Fstarplanet.bigtix.io%2Fbooking%2Fsaleslink%2FJCMAYBANK%3Fpromo%3DJACKYMAYBANK&kupver=cloudflare-4.2.2",
+  "queueittoken": null,
+  "cookies": [
+    {
+      "domain": "bookmyshowsg.queue-it.net",
+      "expiry": 1745391190,
+      "httpOnly": true,
+      "name": "Queue-it-4ec87ec6-7985-486b-a120-adf6650cb9d9",
+      "path": "/",
+      "sameSite": "None",
+      "secure": true,
+      "value": "WasRedirected=false&i=638809843903765682"
+    },
+    {
+      "domain": "bookmyshowsg.queue-it.net",
+      "expiry": 1745473990,
+      "httpOnly": false,
+      "name": "Queue-it-bookmyshowsg________splanet20250423jcmay",
+      "path": "/",
+      "sameSite": "None",
+      "secure": true,
+      "value": "Qid=4ec87ec6-7985-486b-a120-adf6650cb9d9&Cid=en-US&f=0"
+    }
+  ],
+  "cookie_dict": {
+    "Queue-it-4ec87ec6-7985-486b-a120-adf6650cb9d9": "WasRedirected=false&i=638809843903765682",
+    "Queue-it-bookmyshowsg________splanet20250423jcmay": "Qid=4ec87ec6-7985-486b-a120-adf6650cb9d9&Cid=en-US&f=0"
+  },
+  "timestamp": "2025-04-23T05:53:11.729207Z",
+  "browser": "Chrome/124 undetected",
+  "queue_info": {
+    "in_queue": true,
+    "queue_id": "00000000-0000-0000-0000-000000000000"
+  },
+  "event_info": {
+    "url": "https://bookmyshowsg.queue-it.net/?c=bookmyshowsg&e=splanet20250423jcmay&ver=javascript-4.3.1&cver=2039&man=starplanet-booking-60JC25KL-JCMAYBANK&t=https%3A%2F%2Fstarplanet.bigtix.io%2Fbooking%2Fsaleslink%2FJCMAYBANK%3Fpromo%3DJACKYMAYBANK&kupver=cloudflare-4.2.2",
+    "domain": "bookmyshowsg.queue-it.net",
+    "query_params": {
+      "c": "bookmyshowsg",
+      "e": "splanet20250423jcmay",
+      "ver": "javascript-4.3.1",
+      "cver": "2039",
+      "man": "starplanet-booking-60JC25KL-JCMAYBANK",
+      "t": "https://starplanet.bigtix.io/booking/saleslink/JCMAYBANK?promo=JACKYMAYBANK",
+      "kupver": "cloudflare-4.2.2"
+    },
+    "page_title": "Queue-it"
+  },
+  "storage": {
+    "localStorage": {},
+    "sessionStorage": {}
+  },
+  "interesting_network_urls": [],
+  "js_console_logs": [
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387576738
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387576738
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387577767
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387578005
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387578009
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387578017
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387578020
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387578024
+    },
+    {
+      "level": "INFO",
+      "message": "console-api 0:22 \"undetected chromedriver 1337!\"",
+      "source": "console-api",
+      "timestamp": 1745387578029
+    }
+  ],
+  "screenshot": "session_1_1745387591.png",
+  "html_dump": "session_1_1745387591.html",
+  "redirect_chain": [
+    "https://bookmyshowsg.queue-it.net/?c=bookmyshowsg&e=splanet20250423jcmay&ver=javascript-4.3.1&cver=2039&man=starplanet-booking-60JC25KL-JCMAYBANK&enqueuetoken=eyJ0eXAiOiJRVDEiLCJlbmMiOiJBRVMyNTYiLCJpc3MiOjE3NDUzODc1NzcyOTksImV4cCI6MTc0NTM4NzgxNzI5OSwidGkiOiIxZmU1MzE2Yy1kODlhLTQxYzktYTBjMC1iMTQ0OGUyZDVmYjYiLCJjIjoiYm9va215c2hvd3NnIiwiZSI6InNwbGFuZXQyMDI1MDQyM2pjbWF5IiwiaXAiOiIyMDAxOmU2ODo1NDBlOmQxZjk6ZGM3MTpkYmNiOjE2ZDI6YTU2MCJ9.QIsW5ySqNh79TXSdxowaRA.qy6lmE5chlBFT_WBqMgQpZjZEPIWvsmWb-oXrHP3Jfs&t=https%3A%2F%2Fstarplanet.bigtix.io%2Fbooking%2Fsaleslink%2FJCMAYBANK%3Fpromo%3DJACKYMAYBANK&kupver=cloudflare-4.2.2",
+    "https://bookmyshowsg.queue-it.net/?c=bookmyshowsg&e=splanet20250423jcmay&ver=javascript-4.3.1&cver=2039&man=starplanet-booking-60JC25KL-JCMAYBANK&t=https%3A%2F%2Fstarplanet.bigtix.io%2Fbooking%2Fsaleslink%2FJCMAYBANK%3Fpromo%3DJACKYMAYBANK&kupver=cloudflare-4.2.2"
+  ]
+}
