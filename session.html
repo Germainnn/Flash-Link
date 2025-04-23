@@ -130,34 +130,22 @@
 
   async function launchSession() {
     const statusEl  = document.getElementById('status');
-    const params    = new URLSearchParams(location.search);
-    const fileParam = params.get('file');
-    const b64Param  = params.get('s');
-    let session;
-
-    statusEl.textContent = '🔍 Resolving session…';
-
-    // 1) load from JSON file
-    if (fileParam) {
-      statusEl.textContent = `📂 Loading session file: ${fileParam}`;
-      const path = `./sessions/${fileParam}`;
-      debugLog('➡️ fetch ' + path);
-      const resp = await fetch(path);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      session = await resp.json();
-      debugLog('✔️ loaded JSON from ' + path);
-
-    // 2) or decode from ?s=
-    } else if (b64Param) {
-      statusEl.textContent = '🔑 Decoding session string…';
-      session = decodeSession(b64Param);
-      debugLog('✔️ decoded session from Base64');
-
-    } else {
-      throw new Error('No session specified (use ?file=… or ?s=…)');
-    }
-
-    debugLog('Session data:\n' + JSON.stringify(session, null, 2));
+    // ── instead of a local file, fetch the “live” session from JSON Bin:
++    statusEl.textContent = '📡 Fetching session from JSON Bin…';
++    const BIN_ID = '5ff…abc';  // ← your actual JSON Bin ID
++    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
++    debugLog('➡️ fetch ' + API_URL);
++    const resp = await fetch(API_URL, {
++      // if your bin is private, uncomment & fill in:
++      // headers: { 'X-Master-Key': '<YOUR_SECRET_KEY>' }
++    });
++    if (!resp.ok) throw new Error(`Failed to load session (HTTP ${resp.status})`);
++    // JSON Bin v3 returns { record: { …your data… } }
++    const payload = await resp.json();
++    const session = payload.record;
++    debugLog('✔️ loaded session from JSON Bin');
+ 
+     debugLog('Session data:\n' + JSON.stringify(session, null, 2));
 
     // — 3) apply cookies —————————————————————————————————
     statusEl.textContent = '🍪 Applying cookies…';
