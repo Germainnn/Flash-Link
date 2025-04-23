@@ -31,55 +31,264 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    #details {
+      max-width: 600px;
+      margin: 2rem auto;
+      text-align: left;
+      padding: 1rem;
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      display: none;
+    }
+    .detail-item {
+      margin-bottom: 0.5rem;
+    }
+    .success {
+      color: #2ecc71;
+    }
+    .error {
+      color: #e74c3c;
+    }
+    .cookie-count {
+      font-weight: bold;
+    }
+    #advanced-toggle {
+      background: none;
+      border: none;
+      color: #3498db;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
   <h2>🔄 Launching your session...</h2>
   <div class="spinner"></div>
   <p id="status">Preparing your booking session...</p>
-
+  <button id="advanced-toggle" onclick="toggleDetails()">Show session details</button>
+  
+  <div id="details">
+    <h3>Session Details</h3>
+    <div id="session-info"></div>
+    <h3>Cookie Information</h3>
+    <div id="cookie-info"></div>
+  </div>
+  
   <script>
+    let sessionData = null;
+    let targetUrl = null;
+    
+    function toggleDetails() {
+      const details = document.getElementById('details');
+      const toggle = document.getElementById('advanced-toggle');
+      
+      if (details.style.display === 'none' || details.style.display === '') {
+        details.style.display = 'block';
+        toggle.textContent = 'Hide session details';
+      } else {
+        details.style.display = 'none';
+        toggle.textContent = 'Show session details';
+      }
+    }
+    
     function decodeSession(encoded) {
       try {
-        const decoded = atob(decodeURIComponent(encoded));
+        // Replace URL-safe base64 characters back to standard base64
+        const base64Fixed = encoded.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = atob(base64Fixed);
         return JSON.parse(decoded);
       } catch (e) {
         console.error("❌ Failed to decode session:", e);
+        document.getElementById("status").textContent = `❌ Error decoding session: ${e.message}`;
         return null;
       }
     }
-
+    
+    function setCookie(name, value, domain) {
+      // Try to set cookie with multiple domain options
+      const domains = [
+        domain || '.bookmyshow.com',
+        domain?.startsWith('.') ? domain.substring(1) : domain,  // Try without leading dot
+        'bookmyshow.com',
+        '.bookmyshow.com',
+        window.location.hostname
+      ];
+      
+      domains.forEach(d => {
+        if (!d) return;
+        
+        try {
+          // Try with Secure and SameSite=None for cross-site access
+          document.cookie = `${name}=${value}; path=/; domain=${d}; max-age=7200; Secure; SameSite=None`;
+          
+          // Also try without Secure/SameSite for older browsers
+          document.cookie = `${name}=${value}; path=/; domain=${d}; max-age=7200`;
+        } catch (e) {
+          console.warn(`Failed to set cookie for domain ${d}:`, e);
+        }
+      });
+    }
+    
+    function updateSessionInfo() {
+      if (!sessionData) return;
+      
+      const container = document.getElementById('session-info');
+      
+      // Extract and display token info if available
+      let tokenInfo = '';
+      const token = sessionData.queueittoken || (sessionData.queueit_url && sessionData.queueit_url.includes('queueittoken=') ? 
+            sessionData.queueit_url.split('queueittoken=')[1].split('&')[0] : null);
+      
+      if (token) {
+        tokenInfo = `<div class="detail-item"><strong>Token:</strong> ${token.substring(0, 20)}...</div>`;
+        
+        // If token contains timestamp, show it
+        if (token.includes('ts_')) {
+          try {
+            const ts = token.split('ts_')[1].split('~')[0];
+            const date = new Date(parseInt(ts) * 1000);
+            tokenInfo += `<div class="detail-item"><strong>Token Timestamp:</strong> ${date.toLocaleString()}</div>`;
+          } catch (e) {
+            console.error("Error parsing token timestamp:", e);
+          }
+        }
+      }
+      
+      // Build HTML with session info
+      container.innerHTML = `
+        <div class="detail-item"><strong>Target URL:</strong> ${targetUrl || 'Unknown'}</div>
+        ${tokenInfo}
+        <div class="detail-item"><strong>Session Type:</strong> ${
+          sessionData.queueit_url ? 'QueueIT Session' : 
+          sessionData.firebase_link ? 'Firebase Session' : 
+          'Standard Session'
+        }</div>
+      `;
+    }
+    
+    function updateCookieInfo() {
+      const container = document.getElementById('cookie-info');
+      const totalCookies = Object.keys(sessionData.cookies || {}).length;
+      
+      if (totalCookies === 0) {
+        container.innerHTML = '<div class="error">No cookies found in session data!</div>';
+        return;
+      }
+      
+      container.innerHTML = `
+        <div class="cookie-count">Setting <span class="success">${totalCookies}</span> cookies...</div>
+        <div id="cookie-status"></div>
+      `;
+    }
+    
+    function applyCookies() {
+      if (!sessionData || !sessionData.cookies) {
+        document.getElementById("status").textContent = "⚠️ No cookies found in session data.";
+        return false;
+      }
+      
+      const status = document.getElementById("cookie-status");
+      let cookieCount = 0;
+      
+      // First, attempt to extract domain from target URL
+      let domain = null;
+      try {
+        if (targetUrl) {
+          const url = new URL(targetUrl);
+          domain = url.hostname;
+          // Convert domain to base domain (.bookmyshow.com) format
+          if (domain.startsWith('www.')) {
+            domain = domain.substring(4);
+          }
+          domain = '.' + domain;
+        }
+      } catch (e) {
+        console.warn("Could not extract domain from URL:", e);
+      }
+      
+      // Apply each cookie
+      for (const [name, value] of Object.entries(sessionData.cookies)) {
+        try {
+          setCookie(name, value, domain);
+          cookieCount++;
+          
+          if (status) {
+            status.innerHTML += `<div class="success">✓ Set: ${name}</div>`;
+          }
+        } catch (e) {
+          console.error(`Failed to set cookie ${name}:`, e);
+          if (status) {
+            status.innerHTML += `<div class="error">✗ Failed: ${name} - ${e.message}</div>`;
+          }
+        }
+      }
+      
+      document.getElementById("status").textContent = `✅ Applied ${cookieCount} cookies. Preparing redirect...`;
+      return cookieCount > 0;
+    }
+    
     function launchSession() {
       const urlParams = new URLSearchParams(window.location.search);
       const encoded = urlParams.get("s");
-
+      
       if (!encoded) {
         document.getElementById("status").textContent = "❌ No session data found in URL.";
         return;
       }
-
-      const session = decodeSession(encoded);
-
-      if (!session || !session.url) {
-        document.getElementById("status").textContent = "❌ Invalid or corrupted session.";
+      
+      // Decode the session data
+      sessionData = decodeSession(encoded);
+      
+      if (!sessionData) {
+        document.getElementById("status").textContent = "❌ Invalid or corrupted session data.";
         return;
       }
-
-      let countdown = 3;
+      
+      // Determine the target URL
+      targetUrl = sessionData.queueit_url || sessionData.url;
+      
+      if (!targetUrl) {
+        document.getElementById("status").textContent = "❌ No target URL found in session.";
+        return;
+      }
+      
+      // Update the session information display
+      updateSessionInfo();
+      updateCookieInfo();
+      
+      // Try to apply the cookies
+      const cookiesApplied = applyCookies();
+      
+      // Start redirect countdown
+      let countdown = cookiesApplied ? 5 : 3;
       document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
-
+      
       const interval = setInterval(() => {
         countdown--;
         if (countdown <= 0) {
           clearInterval(interval);
-          window.location.href = session.url;
+          // Store the session in localStorage before redirecting
+          try {
+            localStorage.setItem('lastSession', JSON.stringify({
+              timestamp: new Date().toISOString(),
+              targetUrl: targetUrl,
+              sessionData: sessionData
+            }));
+          } catch (e) {
+            console.warn("Could not save session to localStorage:", e);
+          }
+          
+          // Redirect to the target URL
+          window.location.href = targetUrl;
         } else {
           document.getElementById("status").textContent = `✅ Session ready. Redirecting in ${countdown}...`;
         }
       }, 1000);
     }
-
-    launchSession();
+    
+    // Start the process
+    document.addEventListener('DOMContentLoaded', launchSession);
   </script>
 </body>
 </html>
